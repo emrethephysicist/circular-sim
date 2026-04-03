@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circular Motion Simulation — METU Physics</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1117;
+    --panel-bg: #181c24;
+    --card-bg: #1e2330;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8eaf6;
+    --text-muted: #8892a4;
+    --accent: #4fc3f7;
+    --metric-bg: #252b3b;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Consolas', 'Courier New', monospace;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: var(--panel-bg);
+    border-bottom: 0.5px solid var(--border);
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; color: var(--text); }
+  header span { font-size: 12px; color: var(--text-muted); }
+  .metu-badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(79, 195, 247, 0.12);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 0.5px solid rgba(79, 195, 247, 0.3);
+    letter-spacing: 0.05em;
+  }
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+  .canvas-wrap {
+    position: relative;
+    background: #0a0d12;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .pause-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: rgba(255,255,255,0.06);
+    border: 0.5px solid rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 13px;
+    font-family: var(--font);
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .pause-btn:hover { background: rgba(255,255,255,0.14); }
+  .formula-box {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    background: rgba(14,17,23,0.85);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    line-height: 1.9;
+    backdrop-filter: blur(4px);
+  }
+  .formula-box b { color: rgba(255,255,255,0.8); font-weight: 500; }
+
+  .panel {
+    background: var(--panel-bg);
+    border-left: 0.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 0;
+  }
+  .section {
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  .slider-row { margin-bottom: 12px; }
+  .slider-row:last-child { margin-bottom: 0; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .slider-label { font-size: 13px; color: var(--text); }
+  .slider-label em { font-size: 11px; font-style: normal; color: var(--text-muted); }
+  .slider-val {
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .metric {
+    background: var(--metric-bg);
+    border-radius: 8px;
+    padding: 8px 10px;
+    border: 0.5px solid var(--border);
+  }
+  .metric.wide { grid-column: 1 / -1; }
+  .metric-label { font-size: 10px; color: var(--text-muted); margin-bottom: 3px; }
+  .metric-val {
+    font-size: 18px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .metric-unit { font-size: 10px; color: var(--text-muted); font-family: var(--mono); }
+
+  .toggle-list { display: flex; flex-direction: column; gap: 9px; }
+  .toggle-item { display: flex; justify-content: space-between; align-items: center; }
+  .toggle-item span { font-size: 13px; color: var(--text-muted); }
+  .toggle {
+    position: relative;
+    width: 34px;
+    height: 19px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .tslider {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .toggle input:checked + .tslider { background: var(--accent); }
+  .tslider::before {
+    content: '';
+    position: absolute;
+    left: 2px; top: 2px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .tslider::before { transform: translateX(15px); }
+
+  .legend { display: flex; flex-direction: column; gap: 7px; }
+  .legend-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-muted); }
+  .ldot { width: 22px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  @media (max-width: 700px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .panel { border-left: none; border-top: 0.5px solid var(--border); overflow-y: auto; max-height: 45vh; }
+    .formula-box { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Circular Motion Simulation</h1>
+  <span class="metu-badge">METU Physics</span>
+</header>
+
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+    <button class="pause-btn" id="pauseBtn">⏸ Pause</button>
+    <div class="formula-box">
+      <b>v</b> = ω · r &nbsp;&nbsp; <b>aᶜ</b> = ω² · r = v² / r<br>
+      <b>Fᶜ</b> = m · aᶜ &nbsp;&nbsp; <b>T</b> = 2π / ω &nbsp;&nbsp; <b>f</b> = 1 / T
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section">
+      <div class="section-title">Variables</div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Radius <em>(r)</em></span>
+          <span class="slider-val"><span id="rVal">120</span> m</span>
+        </div>
+        <input type="range" id="rSlider" min="40" max="160" value="120" step="1">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Angular vel. <em>(ω)</em></span>
+          <span class="slider-val"><span id="wVal">1.5</span> rad/s</span>
+        </div>
+        <input type="range" id="wSlider" min="0.2" max="4.0" value="1.5" step="0.1">
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">Mass <em>(m)</em></span>
+          <span class="slider-val"><span id="mVal">2.0</span> kg</span>
+        </div>
+        <input type="range" id="mSlider" min="0.5" max="5.0" value="2.0" step="0.1">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Live Metrics</div>
+      <div class="metrics-grid">
+        <div class="metric">
+          <div class="metric-label">Speed (v)</div>
+          <div><span class="metric-val" id="mV">—</span> <span class="metric-unit">m/s</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Period (T)</div>
+          <div><span class="metric-val" id="mT">—</span> <span class="metric-unit">s</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Accel. (aᶜ)</div>
+          <div><span class="metric-val" id="mA">—</span> <span class="metric-unit">m/s²</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Force (Fᶜ)</div>
+          <div><span class="metric-val" id="mF">—</span> <span class="metric-unit">N</span></div>
+        </div>
+        <div class="metric wide">
+          <div class="metric-label">Frequency (f)</div>
+          <div><span class="metric-val" id="mFreq">—</span> <span class="metric-unit">Hz</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Display</div>
+      <div class="toggle-list">
+        <div class="toggle-item"><span>Velocity vector</span><label class="toggle"><input type="checkbox" id="tVel" checked><span class="tslider"></span></label></div>
+        <div class="toggle-item"><span>Acceleration vector</span><label class="toggle"><input type="checkbox" id="tAcc" checked><span class="tslider"></span></label></div>
+        <div class="toggle-item"><span>Force vector</span><label class="toggle"><input type="checkbox" id="tFor" checked><span class="tslider"></span></label></div>
+        <div class="toggle-item"><span>X-projection (SHM)</span><label class="toggle"><input type="checkbox" id="tProj"><span class="tslider"></span></label></div>
+        <div class="toggle-item"><span>Angle readout</span><label class="toggle"><input type="checkbox" id="tAngle" checked><span class="tslider"></span></label></div>
+        <div class="toggle-item"><span>Fullscreen</span><label class="toggle"><input type="checkbox" id="tFull"><span class="tslider"></span></label></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Legend</div>
+      <div class="legend">
+        <div class="legend-row"><div class="ldot" style="background:#4fc3f7"></div>Velocity (tangential)</div>
+        <div class="legend-row"><div class="ldot" style="background:#ef9a9a"></div>Centripetal acceleration</div>
+        <div class="legend-row"><div class="ldot" style="background:#a5d6a7"></div>Centripetal force</div>
+        <div class="legend-row"><div class="ldot" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.25)"></div>Orbit path</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let paused = false;
+let angle = 0;
+let lastTime = null;
+
+const state = { r: 120, w: 1.5, m: 2.0 };
+const show = { vel: true, acc: true, force: true, proj: false, angle: true };
+
+function g(id) { return document.getElementById(id); }
+
+g('pauseBtn').onclick = () => {
+  paused = !paused;
+  g('pauseBtn').textContent = paused ? '▶ Resume' : '⏸ Pause';
+  if (!paused) { lastTime = null; requestAnimationFrame(loop); }
+};
+
+['rSlider','wSlider','mSlider'].forEach(id => {
+  g(id).oninput = () => {
+    state.r = +g('rSlider').value;
+    state.w = +g('wSlider').value;
+    state.m = +g('mSlider').value;
+    g('rVal').textContent = state.r;
+    g('wVal').textContent = state.w.toFixed(1);
+    g('mVal').textContent = state.m.toFixed(1);
+    updateMetrics();
+  };
+});
+
+const toggleMap = {tVel:'vel', tAcc:'acc', tFor:'force', tProj:'proj', tAngle:'angle'};
+Object.entries(toggleMap).forEach(([id, key]) => {
+  g(id).onchange = () => { show[key] = g(id).checked; };
+});
+
+g('tFull').onchange = () => {
+  if (g('tFull').checked) {
+    document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+};
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) g('tFull').checked = false;
+});
+
+function updateMetrics() {
+  const v = state.w * state.r;
+  const T = 2 * Math.PI / state.w;
+  const a = state.w * state.w * state.r;
+  const F = state.m * a;
+  const f = 1 / T;
+  g('mV').textContent = v.toFixed(1);
+  g('mT').textContent = T.toFixed(2);
+  g('mA').textContent = a.toFixed(1);
+  g('mF').textContent = F.toFixed(1);
+  g('mFreq').textContent = f.toFixed(3);
+}
+
+function arrow(x1, y1, x2, y2, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  if (len < 6) return;
+  const nx = dx/len, ny = dy/len;
+  const hw = 7, hl = 13;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - nx*hl, y2 - ny*hl); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - nx*hl - ny*hw, y2 - ny*hl + nx*hw);
+  ctx.lineTo(x2 - nx*hl + ny*hw, y2 - ny*hl - nx*hw);
+  ctx.closePath(); ctx.fill();
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2;
+  const pxScale = Math.min(W, H) / 440;
+  const r = state.r * pxScale;
+
+  ctx.fillStyle = '#0a0d12';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(W-20, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 20); ctx.lineTo(cx, H-20); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+
+  const px = cx + r * Math.cos(angle);
+  const py = cy - r * Math.sin(angle);
+
+  if (show.proj) {
+    ctx.strokeStyle = 'rgba(180,160,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,5]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(cx, py); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(180,160,255,0.6)';
+    ctx.beginPath(); ctx.arc(px, cy, 5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, py, 5, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const vs = 32 * pxScale;
+  if (show.vel) arrow(px, py, px + (-state.w * Math.sin(angle))*vs, py - (state.w * Math.cos(angle))*vs, '#4fc3f7');
+
+  const as = 24 * pxScale;
+  const ax = -Math.cos(angle), ay = Math.sin(angle);
+  if (show.acc) arrow(px, py, px + ax*as, py + ay*as, '#ef9a9a');
+  if (show.force) arrow(px, py, px + ax*as*0.8, py + ay*as*0.8, '#a5d6a7');
+
+  if (show.angle) {
+    const ar = r * 0.3;
+    ctx.strokeStyle = 'rgba(255,215,0,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (angle > 0) ctx.arc(cx, cy, ar, -angle, 0);
+    else ctx.arc(cx, cy, ar, 0, -angle, true);
+    ctx.stroke();
+    const midA = angle / 2;
+    const lx = cx + ar * 1.55 * Math.cos(midA);
+    const ly = cy - ar * 1.55 * Math.sin(midA);
+    ctx.font = `${Math.max(12, 12*pxScale)}px Consolas, monospace`;
+    ctx.fillStyle = 'rgba(255,215,0,0.8)';
+    const deg = ((angle * 180 / Math.PI) % 360 + 360) % 360;
+    ctx.fillText(deg.toFixed(0) + '°', lx - 16, ly + 4);
+  }
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = 'rgba(79,195,247,0.18)';
+  ctx.beginPath(); ctx.arc(px, py, 18*pxScale, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#90caf9';
+  ctx.beginPath(); ctx.arc(px, py, 7*pxScale, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(px, py, 3*pxScale, 0, Math.PI*2); ctx.fill();
+
+  ctx.font = `${Math.max(11,11*pxScale)}px Consolas, monospace`;
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillText('ω = ' + state.w.toFixed(1) + ' rad/s', 14, 22);
+  ctx.fillText('r = ' + state.r + ' m', 14, 38);
+  ctx.fillText('v = ' + (state.w * state.r).toFixed(1) + ' m/s', 14, 54);
+}
+
+function resize() {
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+function loop(ts) {
+  if (!lastTime) lastTime = ts;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  if (!paused) angle += state.w * dt;
+  resize();
+  draw();
+  updateMetrics();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+updateMetrics();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
